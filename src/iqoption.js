@@ -72,79 +72,81 @@ const runSignal = async (signal) => {
             await page.mouse.click(1280, 205, { delay: 500 }) //SELECT (M15)
 
         const minutsDif = moment(signal.time, 'HH:mm:ss').minutes() - moment().minutes();
-        if (minutsDif < 0 || moment(signal.time, 'HH:mm:ss').hours() < moment().hours()) {
+        if (minutsDif < -1 || moment(signal.time, 'HH:mm:ss').hours() < moment().hours()) {
             loadSend.fail('O SINAL CHEGOU TARDE DE MAIS!')
             return
         }
 
         loadSend.text = 'AGUARDANDO ' + minutsDif + ' MINUTOS PARA ENVIAR O SINAL ', signal.string
+
         await new Promise((resolve) => setTimeout(resolve, minutsDif * 30000))
 
         if (String(signal.lastCandle).length > 2) {
-            loadSend.text = 'VERIFICANDO ÚLTIMA VELA, AGUARDANDO VELA EM '+ signal.lastCandle + ' ... '
+            loadSend.text = 'VERIFICANDO ÚLTIMA VELA, AGUARDANDO VELA EM ' + signal.lastCandle + ' ... '
             let lastCandle = await getLastCandles()
             if (lastCandle !== signal.lastCandle) {
-                loadSend.text = 'VERIFICANDO ÚLTIMA VELA NOVAMENTE, AGUARDANDO VELA EM '+ signal.lastCandle + ' ... '
                 await new Promise((resolve) => setTimeout(resolve, 50000))
                 lastCandle = await getLastCandles()
                 if (lastCandle !== signal.lastCandle) {
-                    loadSend.text = 'VERIFICANDO ÚLTIMA VELA NOVAMENTE, AGUARDANDO VELA EM '+ signal.lastCandle + ' ... '
                     await new Promise((resolve) => setTimeout(resolve, 50000))
                     lastCandle = await getLastCandles()
                     if (lastCandle !== signal.lastCandle) {
-                        loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
-                        await new Promise((resolve) => setTimeout(resolve, 5000))
-                        return
+                        await new Promise((resolve) => setTimeout(resolve, 50000))
+                        lastCandle = await getLastCandles()
+                        if (lastCandle !== signal.lastCandle) {
+                            loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
+                            await new Promise((resolve) => setTimeout(resolve, 5000))
+                            return
+                        }
                     }
                 }
             }
-        }
 
-        if (signal.action === "CALL") {
-            await page.mouse.click(1440, 410)
-            loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
-        } else if (signal.action === "PUT") {
-            await page.mouse.click(1440, 530)
-            loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
-        } else {
-            loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
-        }
+            if (signal.action === "CALL") {
+                await page.mouse.click(1440, 410)
+                loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
+            } else if (signal.action === "PUT") {
+                await page.mouse.click(1440, 530)
+                loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
+            } else {
+                loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
+            }
 
-        await new Promise((resolve) => setTimeout(resolve, 5000))
-    } catch (error) {
-        loadSend.fail('ERRO AO ENVIAR O SINAL PARA A CORRETORA! ' + error.message)
+            await new Promise((resolve) => setTimeout(resolve, 5000))
+        } catch (error) {
+            loadSend.fail('ERRO AO ENVIAR O SINAL PARA A CORRETORA! ' + error.message)
+        }
     }
-}
 
 
 const getLastCandles = async () => {
-    await page.screenshot({
-        path: 'candle.png',
-        clip: {
-            x: 840,
-            y: 180,
-            width: 25,
-            height: 360
+        await page.screenshot({
+            path: 'candle.png',
+            clip: {
+                x: 835,
+                y: 180,
+                width: 15,
+                height: 360
+            }
+        });
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        const colors = await getColors('./candle.png')
+        let red = 0;
+        let green = 0;
+        for (let i = 0; i < colors.length; i++) {
+            red += colors[i].rgb()[0] + 10;
+            green += colors[i].rgb()[1];
         }
-    });
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    const colors = await getColors('./candle.png')
-    let red = 0;
-    let green = 0;
-    for (let i = 0; i < colors.length; i++) {
-        red += colors[i].rgb()[0];
-        green += colors[i].rgb()[1];
+
+        if (red > green) {
+            return 'PUT'
+        } else
+            return 'CALL'
+
     }
 
-    if (red > green) {
-        return 'PUT'
-    } else 
-        return 'CALL'
-    
-}
 
-
-module.exports = {
-    connect,
-    runSignal
-}
+    module.exports = {
+        connect,
+        runSignal
+    }

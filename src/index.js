@@ -8,8 +8,8 @@ let isRunningSignal = false;
 try {
     handleAuth().then(async credentials => {
         if (!credentials.auth) return;
-        // const page = await connect(credentials.iqEmail, credentials.iqPassword);
-        // if (!page) throw ""
+        const page = await connect(credentials.iqEmail, credentials.iqPassword);
+        if (!page) throw ""
         io.on("signal", async msg => {
             if (!isRunningSignal) {
                 isRunningSignal = true;
