@@ -101,52 +101,53 @@ const runSignal = async (signal) => {
                     }
                 }
             }
-
-            if (signal.action === "CALL") {
-                await page.mouse.click(1440, 410)
-                loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
-            } else if (signal.action === "PUT") {
-                await page.mouse.click(1440, 530)
-                loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
-            } else {
-                loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
-            }
-
-            await new Promise((resolve) => setTimeout(resolve, 5000))
-        } catch (error) {
-            loadSend.fail('ERRO AO ENVIAR O SINAL PARA A CORRETORA! ' + error.message)
         }
+
+        if (signal.action === "CALL") {
+            await page.mouse.click(1440, 410)
+            loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
+        } else if (signal.action === "PUT") {
+            await page.mouse.click(1440, 530)
+            loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
+        } else {
+            loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 5000))
+    } catch (error) {
+        loadSend.fail('ERRO AO ENVIAR O SINAL PARA A CORRETORA! ' + error.message)
     }
+}
 
 
 const getLastCandles = async () => {
-        await page.screenshot({
-            path: 'candle.png',
-            clip: {
-                x: 835,
-                y: 180,
-                width: 15,
-                height: 360
-            }
-        });
-        await new Promise((resolve) => setTimeout(resolve, 500))
-        const colors = await getColors('./candle.png')
-        let red = 0;
-        let green = 0;
-        for (let i = 0; i < colors.length; i++) {
-            red += colors[i].rgb()[0] + 10;
-            green += colors[i].rgb()[1];
+    await page.screenshot({
+        path: 'candle.png',
+        clip: {
+            x: 835,
+            y: 180,
+            width: 15,
+            height: 360
         }
-
-        if (red > green) {
-            return 'PUT'
-        } else
-            return 'CALL'
-
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const colors = await getColors('./candle.png')
+    let red = 0;
+    let green = 0;
+    for (let i = 0; i < colors.length; i++) {
+        red += colors[i].rgb()[0] + 10;
+        green += colors[i].rgb()[1];
     }
 
+    if (red > green) {
+        return 'PUT'
+    } else
+        return 'CALL'
 
-    module.exports = {
-        connect,
-        runSignal
-    }
+}
+
+
+module.exports = {
+    connect,
+    runSignal
+}
