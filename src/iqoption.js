@@ -1,39 +1,46 @@
 const puppeteer = require('puppeteer');
 const ora = require("ora");
 const getColors = require("get-image-colors");
+const moment = require("moment");
+
 let page;
 
 const connect = async (iqEmail, iqPassword) => {
-    const loadPage = ora('ACESSANDO A CORRETORA ...').start();
-    const browser = await puppeteer.launch({
-        defaultViewport: { width: 1500, height: 700 },
-        headless: false,
-    })
-    page = (await browser.pages())[0];
-    if (!page) page = await browser.newPage();
-    await page.goto("https://login.iqoption.com/en/login");
-    await page.waitForSelector(
-        "button.Button.Button_green.Button_big.Button_fontBig"
-    );
-    await page.mouse.click(800, 200);
-    await page.keyboard.type(iqEmail);
-    await page.mouse.click(800, 270);
-    await page.keyboard.type(iqPassword);
-    await page.mouse.click(800, 340);
-    await page.waitForSelector("button.Button.NavBtn.Button_orange");
-    //FUNCTION TO TRY TO CONNECT
-    const enterTradeRoom = async (page) => {
-        await page.goto("https://iqoption.com/traderoom");
-        try {
-            await page.waitForSelector("canvas.active");
-        } catch (error) {
-            await enterTradeRoom(page)
+    try {
+        const loadPage = ora('ACESSANDO A CORRETORA ...').start();
+        const browser = await puppeteer.launch({
+            defaultViewport: { width: 1500, height: 700 },
+            headless: true,
+        })
+        page = (await browser.pages())[0];
+        if (!page) page = await browser.newPage();
+        await page.goto("https://login.iqoption.com/en/login");
+        await page.waitForSelector(
+            "button.Button.Button_green.Button_big.Button_fontBig"
+        );
+        await page.mouse.click(800, 200);
+        await page.keyboard.type(iqEmail);
+        await page.mouse.click(800, 270);
+        await page.keyboard.type(iqPassword);
+        await page.mouse.click(800, 340);
+        await page.waitForSelector("button.Button.NavBtn.Button_orange");
+        //FUNCTION TO TRY TO CONNECT
+        const enterTradeRoom = async (page) => {
+            await page.goto("https://iqoption.com/traderoom");
+            try {
+                await page.waitForSelector("canvas.active");
+            } catch (error) {
+                await enterTradeRoom(page)
+            }
         }
+        await enterTradeRoom(page);
+        await new Promise((resolve) => setTimeout(resolve, 5000))
+        loadPage.succeed('O BOT ESTÁ PRONTO!')
+        return page;
+    } catch (error) {
+        console.log(error.message)
+        return false
     }
-    await enterTradeRoom(page);
-    await new Promise((resolve) => setTimeout(resolve, 5000))
-    loadPage.succeed('O BOT ESTÁ PRONTO!')
-    return page;
 };
 
 
@@ -64,56 +71,78 @@ const runSignal = async (signal) => {
         else if (signal.m === 15)
             await page.mouse.click(1280, 205, { delay: 500 }) //SELECT (M15)
 
-        let put = 1;
-        let call = 1;
+        const minutsDif = moment(signal.time, 'HH:mm:ss').minutes() - moment().minutes();
+        if (minutsDif < 0 || moment(signal.time, 'HH:mm:ss').hours() < moment().hours()) {
+            loadSend.fail('O SINAL CHEGOU TARDE DE MAIS!')
+            return
+        }
 
-        for (let i = 0; i < 25; i++) {
-            await page.screenshot({
-                path: 'candle.png',
-                clip: {
-                    x: 855 - i,
-                    y: 180,
-                    width: 20,
-                    height: 360
+        loadSend.text = 'AGUARDANDO ' + minutsDif + ' MINUTOS PARA ENVIAR O SINAL ', signal.string
+        await new Promise((resolve) => setTimeout(resolve, minutsDif * 30000))
+
+        if (String(signal.lastCandle).length > 2) {
+            loadSend.text = 'VERIFICANDO ÚLTIMA VELA, AGUARDANDO VELA EM '+ signal.lastCandle + ' ... '
+            let lastCandle = await getLastCandles()
+            if (lastCandle !== signal.lastCandle) {
+                loadSend.text = 'VERIFICANDO ÚLTIMA VELA NOVAMENTE, AGUARDANDO VELA EM '+ signal.lastCandle + ' ... '
+                await new Promise((resolve) => setTimeout(resolve, 50000))
+                lastCandle = await getLastCandles()
+                if (lastCandle !== signal.lastCandle) {
+                    loadSend.text = 'VERIFICANDO ÚLTIMA VELA NOVAMENTE, AGUARDANDO VELA EM '+ signal.lastCandle + ' ... '
+                    await new Promise((resolve) => setTimeout(resolve, 50000))
+                    lastCandle = await getLastCandles()
+                    if (lastCandle !== signal.lastCandle) {
+                        loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
+                        await new Promise((resolve) => setTimeout(resolve, 5000))
+                        return
+                    }
                 }
-            });
-            await new Promise((resolve) => setTimeout(resolve, 700))
-            const colors = await getColors('./candle.png')
-            let red = 0;
-            let green = 0;
-            for (let i = 0; i < colors.length; i++) {
-                red += colors[i].rgb()[0];
-                green += colors[i].rgb()[1];
-            }
-            if (red > green && red > 100) {
-                put += i
-            } else if (green > 400) {
-                call += i
             }
         }
 
-        if (signal.action === "CALL" && call > put) {
+        if (signal.action === "CALL") {
             await page.mouse.click(1440, 410)
-            loadSend.succeed('SINAL ENVIADO PARA A CORRETORA!')
-        } else if (signal.action === "PUT" && put > call) {
+            loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
+        } else if (signal.action === "PUT") {
             await page.mouse.click(1440, 530)
-            loadSend.succeed('SINAL ENVIADO PARA A CORRETORA!')
+            loadSend.succeed('SINAL ' + signal.string + ' ENVIADO AS ' + moment().format('HH:mm:ss'))
         } else {
-            loadSend.succeed('SINAL NÃO FOI ENVIADO!')
+            loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
         }
 
-        if (call > put) {
-            console.log('ÚLTIMA VELA FOI CALL')
-        } else {
-            console.log('ÚLTIMA VELA FOI PUT')
-        }
-
-        console.log('TIME: ', Math.abs(dtBeg - new Date()));
         await new Promise((resolve) => setTimeout(resolve, 5000))
     } catch (error) {
         loadSend.fail('ERRO AO ENVIAR O SINAL PARA A CORRETORA! ' + error.message)
     }
 }
+
+
+const getLastCandles = async () => {
+    await page.screenshot({
+        path: 'candle.png',
+        clip: {
+            x: 840,
+            y: 180,
+            width: 25,
+            height: 360
+        }
+    });
+    await new Promise((resolve) => setTimeout(resolve, 500))
+    const colors = await getColors('./candle.png')
+    let red = 0;
+    let green = 0;
+    for (let i = 0; i < colors.length; i++) {
+        red += colors[i].rgb()[0];
+        green += colors[i].rgb()[1];
+    }
+
+    if (red > green) {
+        return 'PUT'
+    } else 
+        return 'CALL'
+    
+}
+
 
 module.exports = {
     connect,
