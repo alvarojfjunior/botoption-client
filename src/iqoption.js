@@ -85,13 +85,13 @@ const runSignal = async (signal) => {
             loadSend.text = 'VERIFICANDO ÚLTIMA VELA, AGUARDANDO VELA EM ' + signal.lastCandle + ' ... '
             let lastCandle = await getLastCandles()
             if (lastCandle !== signal.lastCandle) {
-                await new Promise((resolve) => setTimeout(resolve, 50000))
+                await new Promise((resolve) => setTimeout(resolve, 35000))
                 lastCandle = await getLastCandles()
                 if (lastCandle !== signal.lastCandle) {
-                    await new Promise((resolve) => setTimeout(resolve, 50000))
+                    await new Promise((resolve) => setTimeout(resolve, 35000))
                     lastCandle = await getLastCandles()
                     if (lastCandle !== signal.lastCandle) {
-                        await new Promise((resolve) => setTimeout(resolve, 50000))
+                        await new Promise((resolve) => setTimeout(resolve, 35000))
                         lastCandle = await getLastCandles()
                         if (lastCandle !== signal.lastCandle) {
                             loadSend.fail('SINAL NÃO PASSOU NA ANALISE!')
